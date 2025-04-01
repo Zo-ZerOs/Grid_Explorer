@@ -1,6 +1,5 @@
 from time import sleep
 
-
 location = [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], \
             [1, 5], [1, 4], [1, 3], [1, 2], [1, 1], [1, 0], \
             [2, 0], [2, 1], [2, 2], [2, 3], [2, 4], [2, 5], \
@@ -333,18 +332,32 @@ def avoid_box():
     
 def return_home():
     global cur
-    global front
-    # while cur != 0:
-    #     if check_box() or turn_location_to_id([turn_id_to_location(cur)[0] + front[0], turn_id_to_location(cur)[1] + front[1]]) == None:
-    #         turn_right()
-    #         if check_box() or turn_location_to_id([turn_id_to_location(cur)[0] + front[0], turn_id_to_location(cur)[1] + front[1]]) == None:
-    #             turn_180()
-    #     elif cur in [0, 11, 12]: go()
-    #     else:
-    #         turn_right()
-    #         if check_box() or turn_location_to_id([turn_id_to_location(cur)[0] + front[0], turn_id_to_location(cur)[1] + front[1]]) == None:
-    #             turn_left()
-    #         go()
+    global ans_boxes
+    b = list(set(ans_boxes))
+    if cur == 23:
+        if (not 11 in b) and (not 12 in b):
+            turn_left(); go(); go(); go()
+        elif not 12 in b:
+            if (not 10 in b) and (not 13 in b):
+                turn_left(); go(); turn_left(); go(); turn_right(); go(); go(); turn_right(); go()
+            else:
+                turn_180(); go(); go(); turn_right(); go(); go(); go(); turn_right(); go(); go()
+        elif not 11 in b:
+            if (10 in b) or (13 in b):
+                turn_180(); go(); go(); turn_right(); go(); go(); go(); turn_right(); go(); go()
+            else:
+                turn_180(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left(); go()
+        else:
+            turn_180(); go(); turn_right(); go(); go(); go(); turn_right(); go()
+    elif cur == 22:
+        if (not 1 in b) and (not 10 in b) and (not 13 in b):
+            turn_left(); go(); go(); go(); turn_right(); go()
+        elif (10 in b) or (13 in b):
+            turn_180(); go(); turn_right(); go(); go(); go(); turn_right(); go(); go()
+        else:
+            turn_left(); go(); go(); turn_right(); go(); turn_left(); go()
+    else:
+        turn_left(); go(); go()
     return
 
 
@@ -358,8 +371,8 @@ def return_home():
 
 animation = False # True | False
 
-# box1 = 7
-# box2 = 15
+# box1 = 23
+# box2 = 22
 # fill_boxes()
 
 # print_map()
@@ -393,5 +406,5 @@ for i in range(1, 23):
             go()
         return_home()
         if sorted(list(set(ans_boxes))) != sorted([i, j]): print("Wrong boxes: " + str(i) + " " + str(j))
-#         if cur != 0: print("Not back home: " + str(i) + " " + str(j))
+        if cur != 0: print("Not back home: " + str(i) + " " + str(j))
 
