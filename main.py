@@ -1,5 +1,6 @@
 from time import sleep
 
+
 location = [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], \
             [1, 5], [1, 4], [1, 3], [1, 2], [1, 1], [1, 0], \
             [2, 0], [2, 1], [2, 2], [2, 3], [2, 4], [2, 5], \
@@ -13,6 +14,8 @@ def turn_location_to_id(loc):
         if location[i] == loc:
             return i
 
+go_count = 0
+turn_count = 0
 box1 = 23
 box2 = 13
 boxes = [1, 2]
@@ -46,11 +49,13 @@ def print_map():
                 print(".", end=" ")
         print()
     print()
-    sleep(0.3)
+    # sleep(0.3)
 
 def go():
     global cur
     global front
+    global go_count
+    go_count = go_count + 1
     cur = turn_location_to_id([turn_id_to_location(cur)[0] + front[0], turn_id_to_location(cur)[1] + front[1]])
     print_map()
     return
@@ -58,6 +63,8 @@ def go():
 def turn_left():
     global cur
     global front
+    global turn_count
+    turn_count = turn_count + 1
     if front == [1, 0]: front = [0, -1]
     elif front == [-1, 0]: front = [0, 1]
     elif front == [0, 1]: front = [1, 0]
@@ -68,6 +75,8 @@ def turn_left():
 def turn_right():
     global cur
     global front
+    global turn_count
+    turn_count = turn_count + 1
     if front == [1, 0]: front = [0, 1] 
     elif front == [-1, 0]: front = [0, -1]
     elif front == [0, 1]: front = [-1, 0]
@@ -78,6 +87,8 @@ def turn_right():
 def turn_180():
     global cur
     global front
+    global turn_count
+    turn_count = turn_count + 1
     if front == [1, 0]: front = [-1, 0] 
     elif front == [-1, 0]: front = [1, 0]
     elif front == [0, 1]: front = [0, -1]
@@ -385,9 +396,12 @@ animation = False # True | False
 
 # return_home()
 # print(set(ans_boxes))
-
+# print("go_count: " + str(go_count) + ", turn_count: " + str(turn_count))
 
 # ---------------- Check for every possible box-combination ----------------
+
+max_movement = 0
+max_movement_setup = []
 
 for i in range(1, 23):
     for j in range(i + 1, 24): 
@@ -396,6 +410,8 @@ for i in range(1, 23):
         cur = 0
         front = [0, 1]
         end = False
+        go_count = 0
+        turn_count = 0
         if sorted([i, j]) in [[1, 11], [4, 6], [17, 19], [12, 22]]: continue
         boxes = [turn_id_to_location(i), turn_id_to_location(j)]
         while (not end) and (cur != 23):
@@ -407,4 +423,14 @@ for i in range(1, 23):
         return_home()
         if sorted(list(set(ans_boxes))) != sorted([i, j]): print("Wrong boxes: " + str(i) + " " + str(j))
         if cur != 0: print("Not back home: " + str(i) + " " + str(j))
+        print("i, j: " + str(i) + ", " + str(j) + "\ngo_count: " + str(go_count) + ", turn_count: " + str(turn_count))
+        print("total: " + str(go_count + turn_count) + "\n")
+        if max_movement < go_count + turn_count:
+            max_movement = go_count + turn_count
+            max_movement_setup = [[i, j]]
+        elif max_movement == go_count + turn_count:
+            max_movement_setup = max_movement_setup + [[i, j]]
+    
+print("max_movement: " + str(max_movement))
+print("max_movement_setup: " + str(max_movement_setup))
 
