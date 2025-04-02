@@ -1,0 +1,454 @@
+from time import sleep
+from spike import PrimeHub, LightMatrix, Button, StatusLight, ForceSensor, MotionSensor, Speaker, ColorSensor, App, DistanceSensor, Motor, MotorPair
+from spike.control import wait_for_seconds, wait_until, Timer
+from math import *
+import time
+
+hub = PrimeHub()
+leftMotor = Motor('B')
+rightMotor = Motor('F')
+motorPair = MotorPair('B', 'F')
+leftColorSensor = ColorSensor('E')
+rightColorSensor = ColorSensor('C')
+distSensor = DistanceSensor('D')
+
+defaultSpeed = 30
+
+motorPair.set_default_speed(defaultSpeed)
+
+
+
+location = [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], \
+            [1, 5], [1, 4], [1, 3], [1, 2], [1, 1], [1, 0], \
+            [2, 0], [2, 1], [2, 2], [2, 3], [2, 4], [2, 5], \
+            [3, 5], [3, 4], [3, 3], [3, 2], [3, 1], [3, 0]]
+
+def turn_id_to_location(id):
+    return location[id]
+
+def turn_location_to_id(loc):
+    for i in range(len(location)):
+        if location[i] == loc:
+            return i
+
+front = [0, 1]
+cur = 0
+ans_boxes = []
+redCells = []
+end = False
+bottom_left = False
+top_right = False
+
+def go():
+    global cur
+    global front
+    cur = turn_location_to_id([turn_id_to_location(cur)[0] + front[0], turn_id_to_location(cur)[1] + front[1]])
+    moveUntilBlack()
+    calibrate()
+    motorPair.move(20.5, 'cm', steering=0, speed=defaultSpeed)
+    return
+
+def check_red():
+    global cur
+    global redCells
+    if (leftColorSensor.get_color() == 'red' or rightColorSensor.get_color() == 'red'):
+        redCells = redCells + [cur]
+    return
+
+def moveUntilBlack():
+    # rightMotor.run_for_seconds(0.5, speed=1)
+    motorPair.start(steering=0, speed=defaultSpeed)
+    while not ((leftColorSensor.get_color() == 'black') or (rightColorSensor.get_color() == 'black')):
+        continue
+    motorPair.stop()
+
+def calibrate():
+    left = leftColorSensor.get_color()
+    right = rightColorSensor.get_color()
+    if left != 'black':
+        leftMotor.start(speed=-defaultSpeed)
+        while not leftColorSensor.get_color() == 'black':
+            continue
+        # leftMotor.stop()
+        # motorPair.stop()
+        leftMotor.start(speed=0)
+    # time.sleep(1)
+    if right != 'black':
+        rightMotor.start(speed=defaultSpeed)
+        while not rightColorSensor.get_color() == 'black':
+            continue
+        # rightMotor.stop()
+        # motorPair.stop()
+        rightMotor.start(speed=0)
+    # time.sleep(1)
+    # while not (leftColorSensor.get_color() == 'white' and rightColorSensor.get_color() == 'white'):
+    #     rightMotor.run_for_seconds(0.1, speed=defaultSpeed)
+    #     leftMotor.run_for_seconds(0.1, speed=defaultSpeed)
+
+
+def turn_left():
+    global cur
+    global front
+    if front == [1, 0]: front = [0, -1]
+    elif front == [-1, 0]: front = [0, 1]
+    elif front == [0, 1]: front = [1, 0]
+    else: front = [-1, 0]
+    motorPair.move(0.5, unit='rotations', steering=-100)
+    return
+
+def turn_right():
+    global cur
+    global front
+    if front == [1, 0]: front = [0, 1]
+    elif front == [-1, 0]: front = [0, -1]
+    elif front == [0, 1]: front = [-1, 0]
+    else: front = [1, 0]
+    motorPair.move(0.5, unit='rotations', steering=100)
+    return
+
+def turn_180():
+    global cur
+    global front
+    if front == [1, 0]: front = [-1, 0]
+    elif front == [-1, 0]: front = [1, 0]
+    elif front == [0, 1]: front = [0, -1]
+    else: front = [0, 1]
+    motorPair.move(1, unit='rotations', steering=100)
+    return
+
+def rotate():
+    global cur
+    global front
+    if cur in [5, 6, 17, 18]: turn_left()
+    elif cur in [11, 12]: turn_right()
+    return
+
+def check_box():
+    global cur
+    global front
+    global ans_boxes
+    dist = distSensor.get_distance_cm()
+    if dist and (dist < 20):
+        ans_boxes = ans_boxes + [turn_location_to_id([turn_id_to_location(cur)[0] + front[0], turn_id_to_location(cur)[1] + front[1]])]
+        # ans_boxes = ans_boxes + [cur + 1]
+        return True
+    return False
+
+def avoid_box():
+    global cur
+    global front
+    global end
+    if cur in [0, 1, 2]:
+        turn_left()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_right()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_left()
+            return
+        go()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_right(); go(); turn_180()
+            return
+        go(); turn_right()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_left()
+        return
+    if cur in [3]:
+        turn_left()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_right()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_left()
+            return
+        go(); go(); turn_right()
+        if check_box():
+            turn_180()
+            return
+        go(); turn_left()
+        return
+    if cur in [4]:
+        turn_left()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_right(); go(); turn_180()
+            return
+        go(); turn_right()
+        if check_box():
+            turn_180()
+            return
+        go(); turn_left()
+        return
+    if cur in [5]:
+        turn_left(); go(); turn_right()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_left()
+        return
+    if cur in [6, 7, 8]:
+        turn_right()
+        if check_box():
+            turn_180(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_left()
+        if check_box():
+            turn_right(); go(); turn_left(); go(); go(); turn_left(); go(); go(); turn_right()
+            return
+        go()
+        if check_box():
+            turn_right(); go(); turn_left(); go(); go(); turn_left(); go(); go(); turn_left(); go(); turn_180()
+            return
+        go(); turn_left()
+        if check_box():
+            turn_right(); go(); turn_left(); go(); turn_right()
+            return
+        go(); turn_right()
+        return
+    if cur in [9]:
+        turn_right()
+        if check_box():
+            turn_180(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_left()
+        if check_box():
+            turn_right(); go(); turn_left(); go(); go(); turn_left(); go(); go(); turn_right()
+            return
+        go()
+        if check_box():
+            turn_180(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_left()
+        if check_box():
+            turn_180()
+            return
+        go(); turn_right()
+        return
+    if cur in [10]:
+        turn_right()
+        if check_box():
+            turn_right(); go(); turn_left(); go(); go(); turn_left(); go(); go(); turn_left(); go(); turn_180()
+            return
+        go(); turn_left()
+        if check_box():
+            turn_180()
+            return
+        go(); turn_right()
+        return
+    if cur in [11]:
+        turn_right()
+        if check_box():
+            turn_right(); go(); turn_left(); go(); go(); turn_left(); go(); go(); turn_left(); go(); turn_180()
+            return
+        go(); turn_left()
+        if check_box():
+            turn_right(); go(); turn_left(); go(); turn_right()
+            return
+        go(); turn_right()
+        return
+    if cur in [12, 13, 14]:
+        turn_right()
+        if check_box():
+            turn_180(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_left()
+        if check_box():
+            turn_right(); go(); turn_left(); go(); go(); turn_left(); go(); go(); turn_right()
+            return
+        go()
+        if check_box():
+            turn_right();go(); turn_left(); go(); go(); turn_left(); go(); go(); turn_left(); go(); turn_180()
+            return
+        go(); turn_left()
+        if check_box():
+            turn_right(); go(); turn_left(); go(); turn_right()
+            return
+        go(); turn_right()
+        return
+    if cur in [15]:
+        turn_right()
+        if check_box():
+            turn_180(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_left()
+        if check_box():
+            turn_right(); go(); turn_left(); go(); go(); turn_left(); go(); go(); turn_right()
+            return
+        go()
+        if check_box():
+            turn_180(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_left()
+        if check_box():
+            turn_left(); go(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_left()
+            return
+        go(); turn_right()
+        return
+    if cur in [16]:
+        turn_left(); go(); turn_right()
+        if check_box():
+            turn_180()
+            return
+        go(); turn_left()
+        return
+    if cur in [17]:
+        turn_left()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_right(); go(); turn_180()
+            return
+        go(); turn_right()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_left()
+        return
+    if cur in [18]:
+        turn_left(); go(); turn_right()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_left()
+            return
+        go()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_right(); go(); turn_180()
+            return
+        go(); turn_right()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_left()
+        return
+    if cur in [19, 20]:
+        turn_left()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_right()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_left()
+            return
+        go()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_right(); go(); turn_180()
+            return
+        go(); turn_right()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); turn_left()
+            return
+        go(); turn_left()
+        return
+    if cur in [21]:
+        turn_left()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left(); go(); turn_right(); go(); turn_left()
+            end = True
+            return
+        go(); turn_right()
+        if check_box():
+            turn_left(); go(); turn_right(); go(); go(); turn_right(); go(); go(); turn_left()
+            end = True
+            return
+        go(); go(); turn_right()
+        if check_box():
+            turn_left()
+            end = True
+            return
+        go(); turn_left()
+        end = True
+        return
+    else:
+        end = True
+    return
+
+def return_home():
+    global cur
+    global ans_boxes
+    b = list(set(ans_boxes))
+    if cur == 23:
+        if (not 11 in b) and (not 12 in b):
+            turn_left(); go(); go(); go()
+        elif not 12 in b:
+            if (not 10 in b) and (not 13 in b):
+                turn_left(); go(); turn_left(); go(); turn_right(); go(); go(); turn_right(); go()
+            else:
+                turn_180(); go(); go(); turn_right(); go(); go(); go(); turn_right(); go(); go()
+        elif not 11 in b:
+            if (10 in b) or (13 in b):
+                turn_180(); go(); go(); turn_right(); go(); go(); go(); turn_right(); go(); go()
+            else:
+                turn_180(); go(); turn_right(); go(); go(); turn_right(); go(); turn_left(); go()
+        else:
+            turn_180(); go(); turn_right(); go(); go(); go(); turn_right(); go()
+    elif cur == 22:
+        if (not 1 in b) and (not 10 in b) and (not 13 in b):
+            turn_left(); go(); go(); go(); turn_right(); go()
+        elif (10 in b) or (13 in b):
+            turn_180(); go(); turn_right(); go(); go(); go(); turn_right(); go(); go()
+        else:
+            turn_left(); go(); go(); turn_right(); go(); turn_left(); go()
+    else:
+        turn_left(); go(); go()
+    return
+
+def print_results():
+    global ans_boxes
+    global redCells
+    global bottom_left
+    global top_right
+    ans_boxes = list(set(ans_boxes))
+    redCells = list(set(redCells))
+    
+    for i in range(len(ans_boxes)):
+        print(ans_boxes[i])
+        # start at 0,0
+        # if (leftColorSensor.get_color() == 'green' or rightColorSensor.get_color() == 'green'):
+        if bottom_left:
+            print("(" + str(turn_id_to_location(ans_boxes[i])[0]) + ", " + str(turn_id_to_location(ans_boxes[i])[1]) + ", B)")
+            
+        # start at 5,3
+        else:
+            print("(" + str(5 - (turn_id_to_location(ans_boxes[i])[0])) + ", " + str(3 - (turn_id_to_location(ans_boxes[i])[1])) + ", B)")
+
+    for i in range(len(redCells)):
+        print()
+        print(redCells[i])
+        # start at 0,0
+        # if (leftColorSensor.get_color() == 'green' or rightColorSensor.get_color() == 'green'):
+        if bottom_left:
+            print("(" + str(turn_id_to_location(redCells[i])[0]) + ", " + str(turn_id_to_location(redCells[i])[1]) + ", R)")
+        # start at 5,3
+        else:
+            print("(" + str(5 - (turn_id_to_location(redCells[i])[0])) + ", " + str(3 - (turn_id_to_location(redCells[i])[1])) + ", R)")
+
+# ---------------- Check one particular box-combination ----------------
+
+# Location:
+# 23 22 21 20 19 18
+# 12 13 14 15 16 17
+# 11 10 09 08 07 06
+# 00 01 02 03 04 05
+
+if (leftColorSensor.get_color() == 'blue' or rightColorSensor.get_color() == 'blue'):
+    bottom_left = True
+else:
+    top_right = True 
+
+time.sleep(3)
+
+check_red()
+
+while not end and cur != 23:
+    rotate()
+    if check_box():
+        avoid_box()
+        continue
+    go()
+    check_red()
+
+return_home()
+# print(set(ans_boxes))
+# print(set(redCells))
+print_results()
