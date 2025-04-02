@@ -1,0 +1,205 @@
+from spike import PrimeHub, LightMatrix, Button, StatusLight, ForceSensor, MotionSensor, Speaker, ColorSensor, App, DistanceSensor, Motor, MotorPair
+from spike.control import wait_for_seconds, wait_until, Timer
+from math import *
+
+hub = PrimeHub()
+leftMotor = Motor('B')
+rightMotor = Motor('A')
+motorPair = MotorPair('B', 'A')
+leftColorSensor = ColorSensor('E')
+rightColorSensor = ColorSensor('C')
+distSensor = DistanceSensor('D')
+
+defaultSpeed = 30
+
+motorPair.set_default_speed(defaultSpeed)
+
+
+
+# motorPair.move(30, 'cm', 0, 30)
+# motorPair.move(11.1 * pi / 4, 'cm', steering=100)
+
+# height = 4
+# width = 6
+
+start = 1, 1
+x, y = start
+direction = 0
+
+def initializeGrid():
+    grid = [[0 for _ in range(4)] for _ in range(4)]
+    for i in range(4):
+        for j in range(4):
+            if ((i == 0) or (i == 4) or (j == 0) or (j == 4)):
+                grid[i][j] = 9
+    return grid
+
+
+def getNextCell():
+    nextx, nexty = x, y
+    if direction == 0:
+        nexty += 1
+    elif direction == 1:
+        nextx += 1
+    elif direction == 2:
+        nexty -= 1
+    elif direction == 3:
+        nextx -= 1
+    return (nextx, nexty)
+
+def getRightCell():
+    rightx, righty = x, y
+    if direction == 0:
+        rightx += 1
+    elif direction == 1:
+        righty -= 1
+    elif direction == 2:
+        rightx -= 1
+    elif direction == 3:
+        righty += 1
+    return (rightx, righty)
+
+def checkRed():
+    if (leftColorSensor.get_color() == 'red' or rightColorSensor.get_color() == 'red'):
+        redCells.append((x,y))
+        grid[y][x] = 2
+
+def checkBox():
+    if (distSensor.get_distance_cm() < 15):
+        if direction == 0:
+            boxPos = (x, y+1)
+        elif direction == 1:
+            boxPos = (x+1, y)
+        elif direction == 2:
+            boxPos = (x, y-1)
+        elif direction == 3:
+            boxPos = (x-1, y)
+        boxes.append(boxPos)
+        grid[boxPos[1]][boxPos[0]] = 3
+        return True
+    return False
+
+def checkLeft():
+    leftx, lefty = x, y
+    if direction == 0:
+        leftx -= 1
+    elif direction == 1:
+        lefty += 1
+    elif direction == 2:
+        leftx += 1
+    elif direction == 3:
+        lefty -= 1
+    return (grid[lefty][leftx] == 0)
+
+def checkRight():
+    rightx, righty = x, y
+    if direction == 0:
+        rightx += 1
+    elif direction == 1:
+        righty -= 1
+    elif direction == 2:
+        rightx -= 1
+    elif direction == 3:
+        righty += 1
+    return (grid[righty][rightx] == 0)
+
+def checkForward():
+    fwdCell = getNextCell()
+    fwdx, fwdy = fwdCell[0], fwdCell[1]
+    return (grid[fwdy][fwdx] == 0)
+
+def moveUntilBlack():
+    motorPair.start(steering=0, speed=10)
+    while not ((leftColorSensor.get_color() == 'black') or (rightColorSensor.get_color() == 'black')):
+        continue
+    motorPair.stop()
+
+def calibrate():
+    left = leftColorSensor.get_color()
+    right = rightColorSensor.get_color()
+    if left != 'black':
+        leftMotor.start(speed=-10)
+        while not leftColorSensor.get_color() == 'black':
+            continue
+        leftMotor.stop()
+    if right != 'black':
+        rightMotor.start(speed=-10)
+        while not rightColorSensor.get_color() == 'black':
+            continue
+        rightMotor.stop()
+
+def moveForward():
+    nextCell = getNextCell()
+    nextx, nexty = nextCell[0], nextCell[1]
+    grid[nexty][nextx] = 1
+    moveUntilBlack()
+    calibrate()
+    motorPair.move(20.5, 'cm', steering=0, speed=defaultSpeed)
+
+def turnLeft():
+    # motorPair.move(90, 'degrees', steering=-100)
+    motorPair.move(0.5, unit='rotations', steering=-100)
+    direction = (direction+3) % 4
+
+def turnRight():
+    # motorPair.move(90, 'degrees', steering=100)
+    motorPair.move(0.5, unit='rotations', steering=100)
+    direction = (direction+1) % 4
+
+def turnAround():
+    motorPair.move(1, unit='rotations', steering=100)
+    direction = (direction+2) % 4
+
+grid = initializeGrid()
+redCells = []
+boxes = []
+
+# x, y = 0, 0
+# direction = 0
+
+# moveForward()
+
+# Scan color paper
+# while True:
+#     colorPaper = leftColorSensor.get_color()
+#     if colorPaper == 'black':
+#         start = 0, 0
+#         grid[0][0] = 1
+#         direction = 0 # N
+#         break
+#     elif colorPaper == 'yellow':
+#         start = 5, 3
+#         grid[3][5] = 1
+#         direction = 2
+#         break
+
+# time.sleep(5)
+
+
+# Start exploring
+while any(0 in row for row in grid):
+    # Turning to face cell with index 0
+    cell = checkLeft()
+    if cell:
+        turnLeft()
+    else:
+        cell = checkForward()
+        if cell:
+            continue
+        else:
+            cell = checkRight()
+            rx, ry = getRightCell()
+            if cell:
+                turnRight()
+            elif (grid[ry][rx] != 3) and (grid[ry][rx] != 9):
+                turnRight()
+            else:
+                turnAround()
+
+    # Check obstacles and move
+    checkRed()
+    box = checkBox()
+    if not box:
+        moveForward()
+
+        
